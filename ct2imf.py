@@ -9,8 +9,15 @@ import configparser
 import os
 import open3d as o3d
 
-file_path = "D:\\imfusion\\ImFusion_registration_sdk\\MatlabData\\CT\\SET2\\SE0"
-def compute_ct2imf(file_path,plot_flag=False):
+def rot2tf(rot,pos):
+        
+    pos_s = np.array(pos)
+    rot_matrix = rot
+    temp= np.column_stack((rot_matrix,pos_s))
+    tf= np.vstack((temp,[0,0,0,1]))
+    return tf
+
+def compute_ct2vtk(file_path,plot_flag=False):
     reader = sitk.ImageSeriesReader()
     dicom_names = reader.GetGDCMSeriesFileNames(file_path)
 
@@ -18,10 +25,10 @@ def compute_ct2imf(file_path,plot_flag=False):
     image = reader.Execute()
 
 
-    image_dim = np.array(list(image.GetSize()))
+    image_dim = np.array(list(image.GetSize()))-1
     image_dir = np.array(list(image.GetDirection()))
     image_size = np.array(list(image.GetSpacing()))
-    volume = image_dim*image_size
+    volume = image_dim*image_size 
     # print(f'imfusion centre {volume}')
     centre2corner = image.TransformContinuousIndexToPhysicalPoint(volume/2)
 
@@ -29,35 +36,20 @@ def compute_ct2imf(file_path,plot_flag=False):
     origin_ct = np.array(image.GetOrigin())
     origin_imf = np.array(list(image.TransformContinuousIndexToPhysicalPoint([(image_dim[0]-1)/2, (image_dim[1]-1)/2, (image_dim[2]-1)/2])))
 
+    image_orient = np.array(image_dir).reshape(3,3)
 
-    # Dicom Original 2 imfusion
-    trans_ct2imf = np.zeros(3)
-    trans_ct2imf[2] = -origin_imf[2]
-    rot_ct2imf = np.array(image_dir).reshape(3,3)
-    # rot_ct2imf = np.identity(3)
-    tf_ct2imf = np.identity(4)
-    tf_ct2imf[:3, :3] = rot_ct2imf
-    tf_ct2imf[:3, 3] = trans_ct2imf
+    
+    pos = volume +  image_orient@origin_ct
+    pos = np.array([volume[0]-origin_ct[0],volume[1]-origin_ct[1], volume[2]+origin_ct[2]])
+    image_orient_temp = np.array([-1,0,0,0,1,0,0,0,-1]).reshape(3,3)
+    ct2corner = rot2tf(image_orient_temp,pos)
+    
+    
     
 
 
-    
-    if plot_flag == True:
-        np.hstack((origin_ct,origin_imf))
 
-
-        bounds = np.array([[1,1,1],
-                    [1,512,1],
-                    [512,512,1],
-                    [512,512,651],
-                    [1,512,651],
-                    [1,1,651]])
-        bounds_ct = image.TransformContinuousIndexToPhysicalPoint(np.array([0,0,0]))
-
-        vol = np.vstack((bounds_ct,origin_ct,origin_imf))
-        fig = plot_fids(vol)
-        fig.show()
-    return tf_ct2imf
+    return ct2corner
 
 def read_ini(path,geometry_path):
     config = configparser.ConfigParser()

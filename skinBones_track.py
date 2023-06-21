@@ -26,9 +26,22 @@ from vtkmodules.vtkRenderingCore import (
     vtkRenderWindowInteractor,
     vtkRenderer
 )
+from numpy.linalg import inv,norm
+from vtk.util import numpy_support
+from ct2imf import compute_ct2vtk
+import numpy as np
 
-
+from cam_parser import CameraAquisition
 def main():
+    tool_marker = "11005"
+    reference_marker = "54320"
+    # dicom_dir = r"D:\Navigation\CT_sphere_detection\Dataset-4-20230610T054436Z-001\Dataset-4\DICOM\PA0\ST0\SE2"
+    # ref2ct_tf = np.load('ref2ct_Oarm.npy')
+    dicom_dir = r"D:\Navigation\CT_sphere_detection\Dataset-2\DICOM\PA0\ST0\SE1"
+    ref2ct_tf = np.load('ref2ct.npy')
+    vtk2ct_tf = compute_ct2vtk(dicom_dir)
+    cam = CameraAquisition(tool_marker,reference_marker)
+
     global rotation_angle, rotation_increment
     # vtkFlyingEdges3D was introduced in VTK >= 8.2
     use_flying_edges = vtk_version_ok(8, 2, 0)
@@ -36,7 +49,6 @@ def main():
     colors.SetColor('SkinColor', [240, 184, 160, 255])
     colors.SetColor('BackfaceColor', [255, 229, 200, 255])
     colors.SetColor('BkgColor', [51, 77, 102, 255])
-    dicom_dir = "D:/Navigation//CT_sphere_detection//SAWBONES_AUTOREG_Oarm//455//461//538/AXIAL"
     reader = vtk.vtkDICOMImageReader()
     reader.SetDirectoryName(dicom_dir)
 
@@ -54,7 +66,7 @@ def main():
     else:
         skin_extractor = vtkMarchingCubes()
     skin_extractor.SetInputConnection(reader.GetOutputPort())
-    skin_extractor.SetValue(0, 500)
+    skin_extractor.SetValue(-1024, 500)
 
     skin_stripper = vtkStripper()
     skin_stripper.SetInputConnection(skin_extractor.GetOutputPort())
@@ -86,7 +98,7 @@ def main():
     else:
         bone_extractor = vtkMarchingCubes()
     bone_extractor.SetInputConnection(reader.GetOutputPort())
-    bone_extractor.SetValue(0, 1150)
+    bone_extractor.SetValue(-500, 2000)
 
     bone_stripper = vtkStripper()
     bone_stripper.SetInputConnection(bone_extractor.GetOutputPort())
@@ -116,12 +128,12 @@ def main():
     # this vector is used to position the camera to look at the data in
     # this direction.
     a_camera = vtkCamera()
-    a_camera.SetViewUp(0, 0, -1)
-    a_camera.SetPosition(0, -1, 0)
-    a_camera.SetFocalPoint(0, 0, 0)
-    a_camera.ComputeViewPlaneNormal()
-    a_camera.Azimuth(30.0)
-    a_camera.Elevation(30.0)
+    a_camera.SetViewUp(0, 1, 0)
+    a_camera.SetPosition(0, 0, 1)
+    # a_camera.SetFocalPoint(0, 0, 0)
+    # a_camera.ComputeViewPlaneNormal()
+    # a_camera.Azimuth(30.0)
+    # a_camera.Elevation(30.0)
 
 
     # Create an STL reader
@@ -175,10 +187,28 @@ def main():
 
     # Define a function to update the actor's orientation
     def update_orientation():
+        json_data = cam.parse_cam()
+    
+    
+        marker_data = cam.Get_camera_quats(json_data)
+        tool_data = marker_data.get(tool_marker,0)
+        ref_data = marker_data.get(reference_marker,0)
+        ref2cam_tf = []
+        if ref_data != 0  and tool_data !=0:
+                ref2cam_tf = cam.transform_data(ref_data[1],ref_data[0])
+                tool2cam_tf = cam.transform_data(tool_data[1],tool_data[0])
+                ref2tool_tf = inv(tool2cam_tf)@ref2cam_tf
+                tool2ref_tf = inv(ref2tool_tf)
+                ref2corner_tf = vtk2ct_tf@ref2ct_tf@tool2ref_tf  
+                # corner2ct_tf@
+                
         global rotation_angle
         transform = vtk.vtkTransform()
-        transform.RotateWXYZ(rotation_angle, 0, 0, 1)
+        if norm(ref2cam_tf) !=0 :
+
+            transform.SetMatrix(list(ref2corner_tf.ravel()))
         # print(rotation_angle)
+        # transform.SetMatrix(list(corner2ct_tf.ravel()))
 
         # Apply the transformation to the actor's polydata
         transformFilter = vtk.vtkTransformPolyDataFilter()
@@ -199,43 +229,7 @@ def main():
         # print(rotation_angle)
         update_orientation()
 
-    def detect_sphere(sphereDataSet):
-        # Create a sphere
-        sphere = vtk.vtkSphere()
-        sphere.SetRadius(0.9)
-        sphere.SetCenter(0.0, 0.0, 0.0)
-
-        # Create an extract geometry filter
-        extractGeometry = vtk.vtkExtractGeometry()
-        extractGeometry.SetImplicitFunction(sphere)
-        extractGeometry.SetInputData(sphereDataSet)
-        extractGeometry.Update()
-
-        # Get the extracted geometry
-        extractedGeometry = extractGeometry.GetOutput()
-
-        # Check if the extracted geometry contains a sphere
-        if extractedGeometry.GetNumberOfPoints() > 0:
-            print("Sphere detected!",extractedGeometry.GetNumberOfPoints())
-        else:
-            print("No sphere detected.")
-    def convert_dicom_series_to_vtk_data_object(dicom_directory):
-        reader = vtk.vtkDICOMImageReader()
-        reader.SetDirectoryName(dicom_directory)
-        reader.Update()
-        metal_extractor = vtkMarchingCubes()
-        bone_extractor.SetInputConnection(reader.GetOutputPort())
-        bone_extractor.SetValue(0, 1150)
-
-
-        image_data = reader.GetOutput()
-
-        return image_data
-
-
-    vtk_data_object = convert_dicom_series_to_vtk_data_object(dicom_dir)
-
-    detect_sphere(vtk_data_object)
+    
 
     
     # Create a timer and assign the callback function
@@ -243,7 +237,6 @@ def main():
     iren.AddObserver(vtk.vtkCommand.TimerEvent, timer_callback)
     iren.Start()
 
-    
     
 
 
