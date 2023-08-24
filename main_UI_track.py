@@ -42,7 +42,7 @@ def main():
     # dicom_dir = r"D:\Navigation\CT_sphere_detection\Dataset-4-20230610T054436Z-001\Dataset-4\DICOM\PA0\ST0\SE1"
     ct2vtk_tf = compute_ct2vtk(dicom_dir)
 
-    ref2ct_tf = np.load('ref2ct.npy')
+    ref2ct_tf = np.load('ref2CT.npy')
     cam = CameraAquisition(tool_marker,reference_marker)
 
     global rotation_angle, rotation_increment
