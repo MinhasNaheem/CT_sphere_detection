@@ -4,10 +4,11 @@ import numpy as np
 # import json
 from numpy.linalg import inv
 np.set_printoptions(suppress=True)
-from functions import plot_fids
+from functions import plot_fids,unit
 import configparser
 import os
 import open3d as o3d
+
 
 def rot2tf(rot,pos):
         
@@ -25,31 +26,34 @@ def compute_ct2vtk(file_path,plot_flag=False):
     image = reader.Execute()
 
 
-    image_dim = np.array(list(image.GetSize()))-1
+    image_dim = np.array(list(image.GetSize()))
     image_dir = np.array(list(image.GetDirection()))
-    image_size = np.array(list(image.GetSpacing()))
-    volume = image_dim*image_size 
-    # print(f'imfusion centre {volume}')
+    image_orient = np.array(image_dir).reshape(3,3)
+    image_spacing = np.array(list(image.GetSpacing()))
+    volume = (image_dim-1)*image_spacing 
+   
     centre2corner = image.TransformContinuousIndexToPhysicalPoint(volume/2)
 
 
-    origin_ct = np.array(image.GetOrigin())
-    origin_imf = np.array(list(image.TransformContinuousIndexToPhysicalPoint([(image_dim[0]-1)/2, (image_dim[1]-1)/2, (image_dim[2]-1)/2])))
-
-    image_orient = np.array(image_dir).reshape(3,3)
-
-    
+    origin_ct = np.array(image.GetOrigin())    
     pos = volume +  image_orient@origin_ct
-    pos = np.array([volume[0]-origin_ct[0],volume[1]-origin_ct[1], volume[2]+origin_ct[2]])
-    image_orient_temp = np.array([-1,0,0,0,1,0,0,0,-1]).reshape(3,3)
-    ct2corner = rot2tf(image_orient_temp,pos)
-    
-    
+    # dataset 3 - array([ 120.6 ,  125.  , -397.96])
     
 
+    
+    image_orient_temp = image_orient@np.array([1,0,0,0,-1,0,0,0,-1]).reshape(3,3)
+    # image_orient_temp = np.identity(3)
 
+    ct2vtk = rot2tf(image_orient_temp,pos)
 
-    return ct2corner
+    # origin = np.array(image.TransformContinuousIndexToPhysicalPoint([0,0,0]))
+    # x_axis = unit(image.TransformContinuousIndexToPhysicalPoint([1,0,0])-origin)
+    # y_axis = unit(image.TransformContinuousIndexToPhysicalPoint([0,1,0])-origin)
+    # z_axis = unit(image.TransformContinuousIndexToPhysicalPoint([0,0,1])-origin)
+    # rot_mat = np.vstack((x_axis,y_axis,z_axis)).transpose()
+    # tf_ct2voxel = rot2tf(rot_mat,origin)
+
+    return ct2vtk
 
 def read_ini(path,geometry_path):
     config = configparser.ConfigParser()
