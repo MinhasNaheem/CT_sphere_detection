@@ -37,9 +37,9 @@ def main():
     reference_marker = "54320"
     # dicom_dir = r"D:\Navigation\CT_sphere_detection\Dataset-4-20230610T054436Z-001\Dataset-4\DICOM\PA0\ST0\SE1"
     # ref2ct_tf = np.load('ref2ct_Oarm.npy')
-    dicom_dir = r"D:\Navigation\Carm_registration\Dataset-2\DICOM\PA0\ST0\SE1"
-    # dicom_dir = r"D:\Navigation\Carm_registration\Dataset-3-20230610T054412Z-001\Dataset-3\DICOM\PA0\ST0\SE1"
-    # dicom_dir = r"D:\Navigation\CT_sphere_detection\Dataset-4-20230610T054436Z-001\Dataset-4\DICOM\PA0\ST0\SE1"
+    # dicom_dir = r"D:\Navigation\Carm_registration\Dataset-2\DICOM\PA0\ST0\SE1"
+    dicom_dir = r"D:\Navigation\Carm_registration\DICOM\PA0\ST0\SE1"
+
     ct2vtk_tf = compute_ct2vtk(dicom_dir)
 
     ref2ct_tf = np.load('ref2CT.npy')
@@ -101,7 +101,7 @@ def main():
     else:
         bone_extractor = vtkMarchingCubes()
     bone_extractor.SetInputConnection(reader.GetOutputPort())
-    bone_extractor.SetValue(-500, 2000)
+    # bone_extractor.SetValue(-100, 3000)
 
     bone_stripper = vtkStripper()
     bone_stripper.SetInputConnection(bone_extractor.GetOutputPort())

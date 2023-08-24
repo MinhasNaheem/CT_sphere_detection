@@ -10,6 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from pycpd import DeformableRegistration,AffineRegistration
 from ct2imf import compute_ct2vtk,read_ini,CamRoboRegistration
 from functions import plot_fids
+from MathFunctions import registrationWithoutCorrespondence
 
 
 
@@ -50,15 +51,16 @@ def transform_pts(cmm,heli2ref_tf_filt):
     return cmm_ref
 
 def main():
-    path = r"D:\Navigation\Carm_registration\Dataset-2"
+    path = r"D:\Navigation\Carm_registration\DICOM"
 
-    file = os.path.join(path,"4330_collect_batch2_autoreg_hel2Referecnce.csv")
-    ct_cmm_file = os.path.join(path,"ct_cmm.txt")
+    file = os.path.join(path,"Fid_Set4_temp.csv")
+    ct_cmm_file = os.path.join(path,"ct_cmm_auto_reg.txt")
+    ct_cmm = np.loadtxt(ct_cmm_file)
     df = pd.read_csv(file)
     ref_pos = df[['refx','refy','refz']].to_numpy()
     ref_quat = df [['ref_qx','ref_qy','ref_qz','ref_qw']].to_numpy()
-    heli_pos = df[['toolx','tooly','toolz']].to_numpy()
-    heli_quat = df [['tool_qx','tool_qy','tool_qz','tool_qw']].to_numpy()
+    heli_pos = df[['phanx','phany','phanz']].to_numpy()
+    heli_quat = df [['phan_qx','phan_qy','phan_qz','phan_qw']].to_numpy()
     heli2ref_tf = []
     heli2ref_pos = []
 
@@ -71,25 +73,17 @@ def main():
     heli2ref_tf_filt = cam2ref_filt@heli2cam_filt
     ref2heli = inv(heli2ref_tf_filt)
 
-    cmm_heli = pd.read_csv("heli_cmm.csv")
-    cmm = cmm_heli.to_numpy()
+    cmm = np.loadtxt(os.path.join(path,'auto_regCmm.txt')) 
     cmm_ref = transform_pts(cmm,heli2ref_tf_filt)
     
-    ct_cmm = np.array(read_mat_fromtxt(ct_cmm_file))
     
-    X = np.vstack((ct_cmm[0],ct_cmm[1],ct_cmm[5]))
-    Y = np.vstack((cmm_ref[0],cmm_ref[1],cmm_ref[5]))
-    X=ct_cmm
-    Y=cmm_ref
-    
-    trans,error=CamRoboRegistration(X,Y)
-    ct2ref = trans
+    ref2ct, error = registrationWithoutCorrespondence(cmm_ref,ct_cmm)
+    ct2ref = inv(ref2ct)
     print(f'error: {error}')
- 
-    ref2ct = inv(ct2ref)
+
     np.save("ref2ct", ref2ct )
     print(f'ref2ct {ref2ct}')
-    file_path = r"D:\Navigation\Carm_registration\Dataset-2\DICOM\PA0\ST0\SE1"
+    file_path = os.path.join(path,'PA0\ST0\SE1')
     ct2imf = compute_ct2vtk(file_path,plot_flag=False)
     imf2ct = inv(ct2imf)
     print(f'ct2imf {ct2imf}')

@@ -36,7 +36,11 @@ def compute_ct2vtk(file_path,plot_flag=False):
 
 
     origin_ct = np.array(image.GetOrigin())    
-    pos = volume +  image_orient@origin_ct
+    pos = np.zeros(3)
+    origin_HFP = image_orient@origin_ct
+    pos[0] = volume[0] +  origin_HFP[0]
+    pos[1] = volume[1] +  origin_HFP[1]
+    pos[2] = volume[2]/2 +  origin_HFP[2] - 40
     # dataset 3 - array([ 120.6 ,  125.  , -397.96])
     
 
